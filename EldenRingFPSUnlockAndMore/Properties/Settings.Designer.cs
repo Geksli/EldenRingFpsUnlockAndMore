@@ -121,6 +121,18 @@ namespace EldenRingFPSUnlockAndMore.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool DisableCamRotationTicked {
+            get {
+                return ((bool)(this["DisableCamRotationTicked"]));
+            }
+            set {
+                this["DisableCamRotationTicked"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("eldenring")]
         public string GameName {
             get {
@@ -140,6 +152,30 @@ namespace EldenRingFPSUnlockAndMore.Properties {
             }
             set {
                 this["WidescreenTicked"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool DisableSteamCheckTicked {
+            get {
+                return ((bool)(this["DisableSteamCheckTicked"]));
+            }
+            set {
+                this["DisableSteamCheckTicked"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool DisableCamLockResetTicked {
+            get {
+                return ((bool)(this["DisableCamLockResetTicked"]));
+            }
+            set {
+                this["DisableCamLockResetTicked"] = value;
             }
         }
     }

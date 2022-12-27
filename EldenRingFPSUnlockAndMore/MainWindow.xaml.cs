@@ -31,12 +31,15 @@ namespace EldenRingFPSUnlockAndMore
         internal long _offset_resolution_scaling_fix = 0x0;
         internal long _offset_fovmultiplier = 0x0;
         internal long _offset_deathpenalty = 0x0;
+        internal long _offset_camrotation = 0x0;
+        internal long _offset_camreset = 0x0;
         internal long _offset_timescale = 0x0;
 
         internal byte[] _patch_hertzlock_disable;
         internal byte[] _patch_resolution_enable;
         internal byte[] _patch_resolution_disable;
         internal byte[] _patch_deathpenalty_disable;
+        internal byte[] _patch_camrotation_disable;
 
         internal bool _codeCave_fovmultiplier = false;
         internal const string _DATACAVE_FOV_MULTIPLIER = "dfovMultiplier";
@@ -274,22 +277,25 @@ namespace EldenRingFPSUnlockAndMore
             }
 
             // start steam
-            Process[] procList = Process.GetProcessesByName("steam");
-            if (procList.Length == 0)
+            if (cbDisableSteamCheck.IsChecked == false)
             {
-                ProcessStartInfo siSteam = new ProcessStartInfo
+                Process[] procList = Process.GetProcessesByName("steam");
+                if (procList.Length == 0)
                 {
-                    WindowStyle = ProcessWindowStyle.Minimized,
-                    Verb = "open",
-                    FileName = "steam://open/console",
-                };
-                Process procSteam = new Process
-                {
-                    StartInfo = siSteam
-                };
-                procSteam.Start();
-                await WaitForProgram("steam", 6000);
-                await Task.Delay(4000);
+                    ProcessStartInfo siSteam = new ProcessStartInfo
+                    {
+                        WindowStyle = ProcessWindowStyle.Minimized,
+                        Verb = "open",
+                        FileName = "steam://open/console",
+                    };
+                    Process procSteam = new Process
+                    {
+                        StartInfo = siSteam
+                    };
+                    procSteam.Start();
+                    await WaitForProgram("steam", 6000);
+                    await Task.Delay(4000);
+                }
             }
 
             // start the game
@@ -453,6 +459,22 @@ namespace EldenRingFPSUnlockAndMore
                     _offset_deathpenalty = 0x0;
             }
 
+            _offset_camrotation = patternScan.FindPattern(GameData.PATTERN_CAMERA_ROTATION) + GameData.PATTERN_CAMERA_ROTATION_OFFSET;
+            Debug.WriteLine($"cam rotation found at: 0x{_offset_camrotation:X}");
+            if (!IsValidAddress(_offset_camrotation))
+                _offset_camrotation = 0x0;
+            else
+            {
+                _patch_camrotation_disable = new byte[GameData.PATCH_DEATHPENALTY_INSTRUCTION_LENGTH];
+                if (!WinAPI.ReadProcessMemory(_gameAccessHwndStatic, _offset_camrotation, _patch_camrotation_disable, GameData.PATCH_CAMERA_ROTATION_INSTRUCTION_LENGTH, out _))
+                    _offset_camrotation = 0x0;
+            }
+
+            _offset_camreset = patternScan.FindPattern(GameData.PATTERN_CAMRESET_LOCKON) + GameData.PATTERN_CAMRESET_LOCKON_OFFSET;
+            Debug.WriteLine($"cam reset found at: 0x{_offset_camreset:X}");
+            if (!IsValidAddress(_offset_camreset))
+                _offset_camreset = 0x0;
+
             patternScan.Dispose();
         }
 
@@ -494,6 +516,20 @@ namespace EldenRingFPSUnlockAndMore
                 UpdateStatus("death penalty not found...", Brushes.Red);
                 LogToFile("death penalty not found...");
                 cbDeathPenalty.IsEnabled = false;
+            }
+
+            if (_offset_camrotation == 0x0)
+            {
+                UpdateStatus("cam rotation not found...", Brushes.Red);
+                LogToFile("cam rotation not found...");
+                cbCamRotation.IsEnabled = false;
+            }
+
+            if (_offset_camreset == 0x0)
+            {
+                UpdateStatus("cam reset not found...", Brushes.Red);
+                LogToFile("cam reset not found...");
+                cbCamLockReset.IsEnabled = false;
             }
 
             if (_offset_timescale == 0x0)
@@ -543,6 +579,8 @@ namespace EldenRingFPSUnlockAndMore
             _offset_resolution = 0x0;
             _offset_resolution_scaling_fix = 0x0;
             _offset_deathpenalty = 0x0;
+            _offset_camrotation = 0x0;
+            _offset_camreset = 0x0;
             _offset_timescale = 0x0;
             _startup = false;
             _patch_hertzlock_disable = null;
@@ -568,14 +606,18 @@ namespace EldenRingFPSUnlockAndMore
         /// </summary>
         private void PatchGame()
         {
-            List<bool> results = new List<bool>();
             if (!CanPatchGame())
                 return;
-            results.Add(PatchFramelock());
-            results.Add(PatchFov());
-            results.Add(PatchWidescreen());
-            results.Add(PatchDeathPenalty());
-            results.Add(PatchGameSpeed());
+            List<bool> results = new List<bool>
+            {
+                PatchFramelock(),
+                PatchFov(),
+                PatchWidescreen(),
+                PatchCamRotation(),
+                PatchCamReset(),
+                PatchDeathPenalty(),
+                PatchGameSpeed()
+            };
             if (results.Contains(true))
                 UpdateStatus("game patched!", Brushes.Green);
         }
@@ -691,6 +733,44 @@ namespace EldenRingFPSUnlockAndMore
                 WriteBytes(_offset_deathpenalty, _patch_deathpenalty_disable);
                 return false;
             }
+            return true;
+        }
+
+        /// <summary>
+        /// Patches game's camera rotation
+        /// </summary>
+        private bool PatchCamRotation()
+        {
+            if (!cbCamRotation.IsEnabled || _offset_camrotation == 0x0 || !CanPatchGame()) return false;
+            if (cbCamRotation.IsChecked == true)
+            {
+                WriteBytes(_offset_camrotation, GameData.PATCH_CAMERA_ROTATION_ENABLE);
+            }
+            else if (cbCamRotation.IsChecked == false)
+            {
+                WriteBytes(_offset_camrotation, _patch_camrotation_disable);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Patches the game's camera centering on lock-on
+        /// </summary>
+        private bool PatchCamReset()
+        {
+            if (!cbCamLockReset.IsEnabled || _offset_camreset == 0x0 || !CanPatchGame()) return false;
+            if (cbCamLockReset.IsChecked == true)
+            {
+                WriteBytes(_offset_camreset, GameData.PATCH_CAMRESET_LOCKON_ENABLE);
+            }
+            else if (cbCamLockReset.IsChecked == false)
+            {
+                WriteBytes(_offset_camreset, GameData.PATCH_CAMRESET_LOCKON_DISABLE);
+                return false;
+            }
+
             return true;
         }
 
